@@ -1,0 +1,9 @@
+{
+  "name": "SIB Kontroll",
+  "short_name": "SIB Kontroll",
+  "description": "Fjernkontroll for Sport In The Box",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f6f8",
+  "theme_color": "#3f6d8f"
+}

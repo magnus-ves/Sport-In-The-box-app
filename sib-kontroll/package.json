@@ -1,0 +1,12 @@
+{
+  "name": "sib-kontroll",
+  "version": "1.0.0",
+  "description": "Fjernkontroll for Sport In The Box via REST-API-et, for nettbrett og mobil",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js",
+    "mock": "node mock-sib.js"
+  },
+  "engines": { "node": ">=18" }
+}

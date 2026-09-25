@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SIB Kontroll">
+  <meta name="theme-color" content="#3f6d8f">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>SIB Kontroll</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">SIB Kontroll</div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="quick" role="tab">Hurtigknapper</button>
+      <button class="tab" data-view="rundown" role="tab">Rundown</button>
+      <button class="tab" data-view="playlists" role="tab">Spillelister</button>
+      <button class="tab" data-view="streams" role="tab">Streaming</button>
+      <button class="tab" data-view="settings" role="tab">Innstillinger</button>
+    </nav>
+    <div id="conn" class="conn" title="Tilkobling til Sport In The Box">
+      <span class="dot"></span><span id="conn-text">Kobler til…</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hurtigknapper --------------------------------------------------- -->
+    <section id="view-quick" class="view active">
+      <div class="view-head">
+        <h1>Hurtigknapper</h1>
+        <button class="btn ghost" id="quick-refresh">Oppdater</button>
+      </div>
+      <div id="quick-groups" class="quick-groups"></div>
+    </section>
+
+    <!-- Rundown --------------------------------------------------------- -->
+    <section id="view-rundown" class="view">
+      <div class="view-head">
+        <h1>Rundown</h1>
+        <select id="rundown-select" class="select"></select>
+        <button class="btn ghost" id="rundown-show">Vis i SIB</button>
+        <button class="btn ghost" id="rundown-refresh">Oppdater</button>
+      </div>
+      <div class="transport">
+        <button class="btn big" id="rd-prev-run" title="Kjør forrige element">&#9664;&#9664; Kjør forrige</button>
+        <button class="btn big primary" id="rd-selected-run" title="Kjør element som er valgt i SIB">&#9654; Kjør valgt</button>
+        <button class="btn big" id="rd-next-run" title="Kjør neste element">Kjør neste &#9654;&#9654;</button>
+        <div class="transport-sub">
+          <button class="btn" id="rd-select-prev">&#9650; Velg forrige</button>
+          <button class="btn" id="rd-select-next">&#9660; Velg neste</button>
+        </div>
+      </div>
+      <p class="hint">Trykk på en rad for å kjøre elementet direkte. Valgt rad i SIB er markert.</p>
+      <ol id="rundown-items" class="rundown-items"></ol>
+    </section>
+
+    <!-- Spillelister ---------------------------------------------------- -->
+    <section id="view-playlists" class="view">
+      <div class="view-head">
+        <h1>Spillelister</h1>
+        <button class="btn ghost" id="playlists-refresh">Oppdater</button>
+      </div>
+      <p class="hint">Sport In The Box-API-et kan ikke liste spillelister, så legg inn ID-ene
+        (medialistOid) du vil styre under <a href="#" data-goto="settings">Innstillinger</a>.</p>
+      <div id="playlist-cards" class="playlist-cards"></div>
+    </section>
+
+    <!-- Streaming ------------------------------------------------------- -->
+    <section id="view-streams" class="view">
+      <div class="view-head">
+        <h1>Streaming</h1>
+        <button class="btn ghost" id="streams-refresh">Oppdater</button>
+      </div>
+      <div id="stream-list" class="stream-list"></div>
+    </section>
+
+    <!-- Innstillinger --------------------------------------------------- -->
+    <section id="view-settings" class="view">
+      <div class="view-head"><h1>Innstillinger</h1></div>
+      <form id="settings-form" class="card form">
+        <h2>Tilkobling</h2>
+        <label>Adresse til Sport In The Box-API
+          <input id="cfg-url" type="url" placeholder="http://localhost:8080" required>
+          <small>Sett «localhost» hvis denne serveren kjører på samme PC som SIB, ellers IP-adressen til SIB-PC-en.</small>
+        </label>
+        <label>API-passord
+          <input id="cfg-password" type="password" autocomplete="off" placeholder="(uendret)">
+          <small id="cfg-password-status"></small>
+        </label>
+        <label class="check"><input id="cfg-clear-password" type="checkbox"> Fjern passord</label>
+
+        <h2>Spillelister</h2>
+        <small>ID-en (medialistOid) finner du i Sport In The Box.</small>
+        <div id="cfg-playlists" class="cfg-playlists"></div>
+        <button type="button" class="btn ghost" id="cfg-add-playlist">+ Legg til spilleliste</button>
+
+        <div class="form-actions">
+          <button type="submit" class="btn primary">Lagre</button>
+          <span id="cfg-status" class="muted"></span>
+        </div>
+      </form>
+
+      <div class="card form">
+        <h2>Egendefinert API-kall</h2>
+        <small>For funksjoner som ikke har egen fane (f.eks. ishockey, lag, opptak). Passordet legges til automatisk.</small>
+        <div class="row">
+          <select id="custom-method" class="select narrow"><option>GET</option><option>POST</option></select>
+          <input id="custom-path" type="text" placeholder="/api/rundown/selection" value="/api/rundown/selection">
+          <button type="button" class="btn primary" id="custom-send">Send</button>
+        </div>
+        <textarea id="custom-body" rows="3" placeholder='JSON-body for POST, f.eks. [{"...": 1}]' hidden></textarea>
+        <pre id="custom-output" class="output"></pre>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <template id="tpl-playlist-row">
+    <div class="cfg-playlist">
+      <input class="pl-id" type="text" inputmode="numeric" placeholder="ID">
+      <input class="pl-name" type="text" placeholder="Navn (valgfritt)">
+      <button type="button" class="btn ghost danger pl-remove" title="Fjern">Fjern</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "SIB Kontroll",
+    "slug": "sib-kontroll",
+    "scheme": "sibkontroll",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "no.sibkontroll.app",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "SIB Kontroll kobler seg til Sport In The Box på det lokale nettverket for å styre grafikk, rundown og strømmer.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        }
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "no.sibkontroll.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#3F6D8F",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ad2dc661-134c-46f5-b7d9-e5152d54b902"
+      }
+    }
+  }
+}
