@@ -1,0 +1,121 @@
+# Bygger iPad-appen (sib-app) i Expos sky med EAS og sender den til TestFlight.
+# Startes manuelt: GitHub → Actions → "iOS → TestFlight" → Run workflow (fungerer fra iPad).
+#
+# Krever disse repository secrets (Settings → Secrets and variables → Actions):
+#   EXPO_TOKEN        Access token fra expo.dev → Account settings → Access tokens
+#   ASC_API_KEY_P8    Hele innholdet i .p8-filen fra App Store Connect (inkl. BEGIN/END-linjene)
+#   ASC_KEY_ID        Key ID for API-nøkkelen
+#   ASC_ISSUER_ID     Issuer ID (øverst på API-nøkkelsiden i App Store Connect)
+#   APPLE_TEAM_ID     Team ID (developer.apple.com → Membership details)
+#   APPLE_TEAM_TYPE   INDIVIDUAL eller COMPANY_OR_ORGANIZATION
+#   ASC_APP_ID        (valgfri) Apple ID for appen i App Store Connect. Uten denne bygges appen
+#                     bare, uten innsending til TestFlight.
+
+name: iOS → TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Hva skal gjøres
+        type: choice
+        default: build-and-submit
+        options:
+          - build-and-submit
+          - build-only
+          - submit-latest
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  ios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: sib-app
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_ASC_API_KEY_PATH: ${{ github.workspace }}/asc-api-key.p8
+      EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      EXPO_APPLE_TEAM_TYPE: ${{ secrets.APPLE_TEAM_TYPE }}
+      ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sib-app/package-lock.json
+
+      - name: Sjekk at secrets finnes
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          missing=""
+          for v in EXPO_TOKEN EXPO_ASC_KEY_ID EXPO_ASC_ISSUER_ID EXPO_APPLE_TEAM_ID EXPO_APPLE_TEAM_TYPE; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          [ -n "$ASC_API_KEY_P8" ] || missing="$missing ASC_API_KEY_P8"
+          if [ -n "$missing" ]; then echo "::error::Mangler secrets:$missing"; exit 1; fi
+
+      - name: Skriv App Store Connect-nøkkel
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: printf '%s\n' "$ASC_API_KEY_P8" > "$EXPO_ASC_API_KEY_PATH"
+
+      - run: npm ci
+
+      - name: Sjekk pakkeversjoner mot Expo SDK
+        run: npx expo install --check || echo "::warning::Noen pakker avviker fra anbefalte versjoner for SDK-en"
+
+      - name: Legg innsendingsoppsett inn i eas.json (bare i denne kjøringen)
+        if: env.ASC_APP_ID != ''
+        run: |
+          node -e '
+            const fs = require("fs");
+            const eas = JSON.parse(fs.readFileSync("eas.json", "utf8"));
+            eas.submit = eas.submit || {};
+            eas.submit.production = {
+              ...(eas.submit.production || {}),
+              ios: {
+                ascAppId: process.env.ASC_APP_ID,
+                ascApiKeyPath: process.env.EXPO_ASC_API_KEY_PATH,
+                ascApiKeyId: process.env.EXPO_ASC_KEY_ID,
+                ascApiKeyIssuerId: process.env.EXPO_ASC_ISSUER_ID,
+              },
+            };
+            fs.writeFileSync("eas.json", JSON.stringify(eas, null, 2));
+          '
+
+      # eas-cli regner seg som ikke-interaktiv når CI er satt, og kan da ikke lage nye
+      # Apple-sertifikater. scripts/answer-prompts.py kjører den i en pseudo-terminal uten CI
+      # og svarer Enter (standardvalget) på spørsmålene. Innlogging hos Apple skjer med
+      # API-nøkkelen, så det trengs ingen Apple-ID, passord eller 2FA.
+      - name: Bygg (og send inn) med EAS
+        if: inputs.action != 'submit-latest'
+        run: |
+          submit_flag=""
+          if [ "${{ inputs.action }}" = "build-and-submit" ]; then
+            if [ -n "$ASC_APP_ID" ]; then
+              submit_flag="--auto-submit"
+            else
+              echo "::warning::ASC_APP_ID mangler – bygger uten å sende til TestFlight."
+            fi
+          fi
+          python3 scripts/answer-prompts.py npx --yes eas-cli@latest build --platform ios --profile production --no-wait $submit_flag
+
+      - name: Send siste bygg til TestFlight
+        if: inputs.action == 'submit-latest'
+        run: |
+          if [ -z "$ASC_APP_ID" ]; then echo "::error::ASC_APP_ID mangler"; exit 1; fi
+          npx --yes eas-cli@latest submit --platform ios --profile production --latest --non-interactive --no-wait
+
+      - name: Rydd opp nøkkel
+        if: always()
+        run: rm -f "$EXPO_ASC_API_KEY_PATH"
